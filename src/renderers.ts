@@ -1,4 +1,4 @@
-import type { AnalysisReport } from "./types.js";
+import type { AnalysisReport, OutputFormat } from "./types.js";
 
 export function renderConsoleReport(report: AnalysisReport): string {
   const { snapshot, explanation, aiSummary } = report;
@@ -61,6 +61,54 @@ export function renderMarkdownReport(report: AnalysisReport): string {
     "## Optional AI Developer Handoff Summary",
     aiSummary ?? "AI enrichment was skipped because no API key was configured, `--no-ai` was used, or the Anthropic request failed."
   ].join("\n");
+}
+
+export function renderJsonReport(report: AnalysisReport): string {
+  const { snapshot, explanation, aiSummary } = report;
+
+  const output = {
+    name: snapshot.displayName,
+    source: snapshot.source,
+    sourceKind: snapshot.sourceKind,
+    fileCount: snapshot.fileCount,
+    maxFilesReached: snapshot.maxFilesReached,
+    isMonorepo: snapshot.isMonorepo,
+    workspacePackages: snapshot.workspacePackages,
+    languages: snapshot.languages,
+    primaryLanguage: snapshot.languages[0]?.name ?? null,
+    manifests: snapshot.manifests,
+    packageName: snapshot.packageName ?? null,
+    packageManager: snapshot.packageManager ?? null,
+    packageScripts: snapshot.packageScripts,
+    packageBins: snapshot.packageBins,
+    frameworkClues: snapshot.frameworkClues,
+    entrypoints: snapshot.entrypoints,
+    topLevelEntries: snapshot.topLevelEntries,
+    docsPresent: snapshot.docsPresent,
+    testsPresent: snapshot.testsPresent,
+    testFileCount: snapshot.testFileCount,
+    explanation: {
+      projectOverview: explanation.projectOverview,
+      technologySignals: explanation.technologySignals,
+      architectureSummary: explanation.architectureSummary,
+      testingAndDocsStatus: explanation.testingAndDocsStatus,
+      developerHandoffSummary: explanation.developerHandoffSummary
+    },
+    aiSummary
+  };
+
+  return JSON.stringify(output, null, 2);
+}
+
+export function renderReport(report: AnalysisReport, format: OutputFormat): string {
+  switch (format) {
+    case "json":
+      return renderJsonReport(report);
+    case "markdown":
+      return renderMarkdownReport(report);
+    default:
+      return renderConsoleReport(report);
+  }
 }
 
 function formatTopLevel(values: string[]): string {

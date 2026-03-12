@@ -10,6 +10,7 @@ import {
   detectEntrypoints,
   detectFrameworkClues,
   detectManifests,
+  detectMonorepo,
   detectPackageManager,
   type PackageManifestInfo
 } from "./heuristics.js";
@@ -25,11 +26,13 @@ interface PackageJsonShape {
   bin?: string | Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  workspaces?: string[] | { packages?: string[] };
 }
 
 interface ManifestBundle {
   packageInfo?: PackageManifestInfo;
   frameworkSources: string[];
+  workspacesFromPackageJson?: string[];
 }
 
 export async function scanRepository(
@@ -91,6 +94,7 @@ export async function scanRepository(
   const packageInfo = manifestBundle.packageInfo;
   const rootEntryNames = visibleRootEntries.map((entry) => entry.name);
   const testFileCount = countTests(filePaths);
+  const monorepoInfo = detectMonorepo(rootEntryNames, manifestBundle.workspacesFromPackageJson);
 
   return {
     sourceKind: resolvedTarget.kind,
@@ -112,13 +116,16 @@ export async function scanRepository(
     entrypoints: detectEntrypoints(filePaths, packageInfo),
     docsPresent: detectDocs(filePaths, rootEntryNames),
     testsPresent: testFileCount > 0,
-    testFileCount
+    testFileCount,
+    isMonorepo: monorepoInfo.isMonorepo,
+    workspacePackages: monorepoInfo.workspacePackages
   };
 }
 
 async function collectManifestSignals(rootPath: string): Promise<ManifestBundle> {
   const frameworkSources: string[] = [];
   let packageInfo: PackageManifestInfo | undefined;
+  let workspacesFromPackageJson: string[] | undefined;
 
   const packageJsonPath = path.join(rootPath, "package.json");
   const packageJson = await readOptionalJson(packageJsonPath);
@@ -135,6 +142,8 @@ async function collectManifestSignals(rootPath: string): Promise<ManifestBundle>
       packageScripts: Object.keys(packageJson.scripts ?? {}).sort((left, right) => left.localeCompare(right)),
       packageBins
     };
+
+    workspacesFromPackageJson = normalizeWorkspacesField(packageJson.workspaces);
   }
 
   const pyprojectText = await readOptionalText(path.join(rootPath, "pyproject.toml"));
@@ -154,7 +163,8 @@ async function collectManifestSignals(rootPath: string): Promise<ManifestBundle>
 
   return {
     packageInfo,
-    frameworkSources
+    frameworkSources,
+    workspacesFromPackageJson
   };
 }
 
@@ -185,4 +195,21 @@ function normalizePackageBin(binField: PackageJsonShape["bin"]): string[] {
   }
 
   return Object.values(binField).sort((left, right) => left.localeCompare(right));
+}
+
+function normalizeWorkspacesField(workspaces: PackageJsonShape["workspaces"]): string[] | undefined {
+  if (!workspaces) {
+    return undefined;
+  }
+
+  if (Array.isArray(workspaces)) {
+    return workspaces.length > 0 ? workspaces : undefined;
+  }
+
+  // Yarn-style { packages: string[] }
+  if (Array.isArray(workspaces.packages) && workspaces.packages.length > 0) {
+    return workspaces.packages;
+  }
+
+  return undefined;
 }

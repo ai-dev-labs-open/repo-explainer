@@ -2,7 +2,7 @@
 
 import { DEFAULT_ANTHROPIC_MODEL } from "./anthropic.js";
 import { analyzeRepositoryTarget, DEFAULT_MAX_FILES } from "./main.js";
-import type { CliOptions } from "./types.js";
+import type { CliOptions, OutputFormat } from "./types.js";
 
 export async function run(argv: string[]): Promise<number> {
   try {
@@ -17,16 +17,20 @@ export async function run(argv: string[]): Promise<number> {
       writePath: parsed.options.writePath,
       noAi: parsed.options.noAi,
       model: parsed.options.model,
-      maxFiles: parsed.options.maxFiles
+      maxFiles: parsed.options.maxFiles,
+      format: parsed.options.format
     });
 
-    process.stdout.write(`${result.consoleOutput}\n`);
+    const format = parsed.options.format;
+    const output = format === "json" ? result.jsonOutput : format === "markdown" ? result.markdownOutput : result.consoleOutput;
+    process.stdout.write(`${output}\n`);
+
     for (const warning of result.warnings) {
       process.stderr.write(`Warning: ${warning}\n`);
     }
 
     if (parsed.options.writePath) {
-      process.stdout.write(`Markdown report written to ${parsed.options.writePath}\n`);
+      process.stdout.write(`Report written to ${parsed.options.writePath}\n`);
     }
 
     return 0;
@@ -49,7 +53,8 @@ function parseCliArgs(argv: string[]): ParsedCliResult {
       options: {
         target: "",
         noAi: false,
-        maxFiles: DEFAULT_MAX_FILES
+        maxFiles: DEFAULT_MAX_FILES,
+        format: "text"
       }
     };
   }
@@ -66,7 +71,8 @@ function parseCliArgs(argv: string[]): ParsedCliResult {
   const options: CliOptions = {
     target: maybeTarget,
     noAi: false,
-    maxFiles: DEFAULT_MAX_FILES
+    maxFiles: DEFAULT_MAX_FILES,
+    format: "text"
   };
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -97,6 +103,13 @@ function parseCliArgs(argv: string[]): ParsedCliResult {
         }
         options.maxFiles = parsePositiveInteger(rest[index], "--max-files");
         break;
+      case "--format":
+        index += 1;
+        if (!rest[index]) {
+          throw new Error("Missing value for --format.");
+        }
+        options.format = parseOutputFormat(rest[index]);
+        break;
       default:
         throw new Error(`Unknown option: ${value}`);
     }
@@ -117,14 +130,25 @@ function parsePositiveInteger(value: string, label: string): number {
   return parsed;
 }
 
+function parseOutputFormat(value: string): OutputFormat {
+  if (value === "text" || value === "markdown" || value === "json") {
+    return value;
+  }
+
+  throw new Error(`--format must be one of: text, markdown, json. Got: ${value}`);
+}
+
 function renderHelp(): string {
   return [
     "Usage:",
-    "  repo-explainer explain <target> [--write <file>] [--no-ai] [--model <name>] [--max-files <n>]",
+    "  repo-explainer explain <target> [--format text|markdown|json] [--write <file>] [--no-ai] [--model <name>] [--max-files <n>]",
     "",
     "Examples:",
     "  repo-explainer explain .",
+    "  repo-explainer explain . --format json",
     "  repo-explainer explain https://github.com/octocat/Hello-World --write report.md",
+    "  repo-explainer explain https://github.com/octocat/Hello-World --format json --write report.json",
+    "  repo-explainer explain ../another-repo --no-ai --max-files 150",
     "",
     "Environment:",
     `  ANTHROPIC_API_KEY enables optional AI enrichment. Default model: ${DEFAULT_ANTHROPIC_MODEL}`

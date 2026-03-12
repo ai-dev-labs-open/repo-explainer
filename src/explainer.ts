@@ -17,10 +17,16 @@ export function buildDeterministicExplanation(snapshot: RepositorySnapshot): Det
       ? `Likely entrypoints include ${joinHumanList(snapshot.entrypoints.slice(0, 3))}.`
       : "No canonical entrypoint was detected from common file names.";
 
+  const monorepoLine = snapshot.isMonorepo
+    ? snapshot.workspacePackages.length > 0
+      ? ` This appears to be a monorepo with workspaces: ${joinHumanList(snapshot.workspacePackages)}.`
+      : " This appears to be a monorepo."
+    : "";
+
   const projectOverview =
     `${snapshot.displayName} looks like a ${primaryLanguage.toLowerCase()} repository with ` +
     `${snapshot.topLevelEntries.length} visible top-level entries. ` +
-    `${topLevelNames.length > 0 ? `The top level is anchored by ${joinHumanList(topLevelNames)}.` : ""}`.trim();
+    `${topLevelNames.length > 0 ? `The top level is anchored by ${joinHumanList(topLevelNames)}.` : ""}${monorepoLine}`.trim();
 
   const technologySignals = [
     `Primary language: ${primaryLanguage}`,

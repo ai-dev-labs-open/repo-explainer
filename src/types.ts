@@ -1,11 +1,14 @@
 export type TargetKind = "local" | "github";
 
+export type OutputFormat = "text" | "markdown" | "json";
+
 export interface CliOptions {
   target: string;
   writePath?: string;
   noAi: boolean;
   model?: string;
   maxFiles: number;
+  format: OutputFormat;
 }
 
 export interface TopLevelEntry {
@@ -48,6 +51,8 @@ export interface RepositorySnapshot {
   docsPresent: boolean;
   testsPresent: boolean;
   testFileCount: number;
+  isMonorepo: boolean;
+  workspacePackages: string[];
 }
 
 export interface DeterministicExplanation {
@@ -68,5 +73,6 @@ export interface AnalysisResult {
   report: AnalysisReport;
   consoleOutput: string;
   markdownOutput: string;
+  jsonOutput: string;
   warnings: string[];
 }
