@@ -4,11 +4,14 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { analyzeRepositoryTarget } from "../src/main.js";
+import { renderJsonReport, renderMarkdownReport, renderConsoleReport, renderReport } from "../src/renderers.js";
 import { resolveTarget } from "../src/target.js";
 
 const fixturesRoot = fileURLToPath(new URL("./fixtures", import.meta.url));
 const tsFixture = path.join(fixturesRoot, "ts-app");
 const pythonFixture = path.join(fixturesRoot, "python-tool");
+const monorepoFixture = path.join(fixturesRoot, "monorepo-workspace");
+const pnpmMonorepoFixture = path.join(fixturesRoot, "pnpm-monorepo");
 
 describe("analyzeRepositoryTarget", () => {
   afterEach(() => {
@@ -157,5 +160,64 @@ describe("analyzeRepositoryTarget", () => {
 
     expect(result.report.aiSummary).toBeNull();
     expect(result.warnings[0]).toContain("AI enrichment skipped");
+  });
+
+  it("non-monorepo repo has isMonorepo=false", async () => {
+    const result = await analyzeRepositoryTarget(tsFixture, { noAi: true });
+
+    expect(result.report.snapshot.isMonorepo).toBe(false);
+    expect(result.report.snapshot.workspacePackages).toEqual([]);
+  });
+
+  it("detects monorepo via package.json workspaces field", async () => {
+    const result = await analyzeRepositoryTarget(monorepoFixture, { noAi: true });
+
+    expect(result.report.snapshot.isMonorepo).toBe(true);
+    expect(result.report.snapshot.workspacePackages).toEqual(["apps/*", "packages/*"]);
+    expect(result.report.explanation.projectOverview).toContain("monorepo");
+  });
+
+  it("detects monorepo via pnpm-workspace.yaml", async () => {
+    const result = await analyzeRepositoryTarget(pnpmMonorepoFixture, { noAi: true });
+
+    expect(result.report.snapshot.isMonorepo).toBe(true);
+  });
+});
+
+describe("JSON output format", () => {
+  it("produces valid parseable JSON with stable shape", async () => {
+    const result = await analyzeRepositoryTarget(tsFixture, { noAi: true, maxFiles: 50 });
+
+    const parsed = JSON.parse(result.jsonOutput) as Record<string, unknown>;
+
+    expect(parsed.name).toBe("ts-app");
+    expect(parsed.sourceKind).toBe("local");
+    expect(Array.isArray(parsed.languages)).toBe(true);
+    expect(Array.isArray(parsed.frameworkClues)).toBe(true);
+    expect(Array.isArray(parsed.entrypoints)).toBe(true);
+    expect(typeof parsed.isMonorepo).toBe("boolean");
+    expect(Array.isArray(parsed.workspacePackages)).toBe(true);
+    expect(parsed.aiSummary).toBeNull();
+    expect(typeof parsed.explanation).toBe("object");
+    const explanation = parsed.explanation as Record<string, unknown>;
+    expect(typeof explanation.projectOverview).toBe("string");
+    expect(Array.isArray(explanation.technologySignals)).toBe(true);
+  });
+
+  it("renderJsonReport includes monorepo fields", async () => {
+    const result = await analyzeRepositoryTarget(monorepoFixture, { noAi: true });
+    const parsed = JSON.parse(renderJsonReport(result.report)) as Record<string, unknown>;
+
+    expect(parsed.isMonorepo).toBe(true);
+    expect(parsed.workspacePackages).toEqual(["apps/*", "packages/*"]);
+  });
+
+  it("renderReport dispatches correctly for each format", async () => {
+    const result = await analyzeRepositoryTarget(tsFixture, { noAi: true, maxFiles: 50 });
+    const { report } = result;
+
+    expect(renderReport(report, "text")).toBe(renderConsoleReport(report));
+    expect(renderReport(report, "markdown")).toBe(renderMarkdownReport(report));
+    expect(renderReport(report, "json")).toBe(renderJsonReport(report));
   });
 });

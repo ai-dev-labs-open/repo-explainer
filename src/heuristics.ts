@@ -254,6 +254,31 @@ export function detectFrameworkClues(contents: string[]): string[] {
   return [...found].sort((left, right) => left.localeCompare(right));
 }
 
+export function detectMonorepo(
+  rootEntryNames: Iterable<string>,
+  workspacesFromPackageJson: string[] | undefined
+): { isMonorepo: boolean; workspacePackages: string[] } {
+  const names = new Set(rootEntryNames);
+
+  // Explicit workspaces field in package.json
+  if (workspacesFromPackageJson && workspacesFromPackageJson.length > 0) {
+    return { isMonorepo: true, workspacePackages: [...workspacesFromPackageJson].sort() };
+  }
+
+  // pnpm-workspace.yaml is a strong monorepo signal
+  if (names.has("pnpm-workspace.yaml")) {
+    return { isMonorepo: true, workspacePackages: [] };
+  }
+
+  // Conventional monorepo directories
+  const monorepoDirs = ["packages", "apps"].filter((dir) => names.has(dir));
+  if (monorepoDirs.length > 0) {
+    return { isMonorepo: true, workspacePackages: monorepoDirs };
+  }
+
+  return { isMonorepo: false, workspacePackages: [] };
+}
+
 export function topLevelSourceLocations(entries: TopLevelEntry[]): string[] {
   const preferred = entries
     .filter((entry) => entry.kind === "directory" && ["src", "packages", "apps", "lib"].includes(entry.name))

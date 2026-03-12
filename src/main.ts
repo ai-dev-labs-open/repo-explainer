@@ -3,10 +3,10 @@ import path from "node:path";
 
 import { DEFAULT_ANTHROPIC_MODEL, generateAiRepositorySummary } from "./anthropic.js";
 import { buildDeterministicExplanation } from "./explainer.js";
-import { renderConsoleReport, renderMarkdownReport } from "./renderers.js";
+import { renderConsoleReport, renderJsonReport, renderMarkdownReport, renderReport } from "./renderers.js";
 import { scanRepository } from "./scanner.js";
 import { resolveTarget } from "./target.js";
-import type { AnalysisResult, ResolvedTarget } from "./types.js";
+import type { AnalysisResult, OutputFormat, ResolvedTarget } from "./types.js";
 
 export const DEFAULT_MAX_FILES = 250;
 
@@ -15,6 +15,7 @@ export interface AnalyzeOptions {
   noAi?: boolean;
   model?: string;
   maxFiles?: number;
+  format?: OutputFormat;
 }
 
 export interface AnalyzeDependencies {
@@ -57,19 +58,24 @@ export async function analyzeRepositoryTarget(
       explanation,
       aiSummary
     };
+
     const consoleOutput = renderConsoleReport(report);
     const markdownOutput = renderMarkdownReport(report);
+    const jsonOutput = renderJsonReport(report);
 
     if (options.writePath) {
+      const format = options.format ?? "text";
+      const fileContent = renderReport(report, format);
       const absoluteWritePath = path.resolve(options.writePath);
       await mkdir(path.dirname(absoluteWritePath), { recursive: true });
-      await writeFile(absoluteWritePath, markdownOutput, "utf8");
+      await writeFile(absoluteWritePath, fileContent, "utf8");
     }
 
     return {
       report,
       consoleOutput,
       markdownOutput,
+      jsonOutput,
       warnings
     };
   } finally {
