@@ -1,0 +1,39 @@
+{
+  "name": "repo-explainer",
+  "version": "0.1.0",
+  "description": "CLI that explains a local repository or public GitHub repo from structure and heuristics.",
+  "type": "module",
+  "bin": {
+    "repo-explainer": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "cli",
+    "repository",
+    "anthropic",
+    "analysis",
+    "developer-tools"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.22.0",
+    "globals": "^16.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.1",
+    "vitest": "^3.0.8"
+  }
+}
